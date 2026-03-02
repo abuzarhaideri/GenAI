@@ -115,7 +115,7 @@ def main():
     os.makedirs(models_dir, exist_ok=True)
 
     model_path = os.path.join(models_dir, "best_model.pkl")
-    joblib.dump(best_pipeline, model_path)
+    joblib.dump(best_pipeline, model_path, compress=3)
     print(f"  Saved model  → {model_path}")
 
     metadata = {
