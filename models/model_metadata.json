@@ -1,0 +1,29 @@
+{
+  "best_model": "Random Forest Regressor",
+  "numerical_features": [
+    "Rooms",
+    "Distance",
+    "Bedroom2",
+    "Bathroom",
+    "Car",
+    "Landsize",
+    "BuildingArea",
+    "HouseAge"
+  ],
+  "categorical_features": [
+    "Type",
+    "Regionname"
+  ],
+  "metrics": {
+    "Linear Regression": {
+      "r2": 0.6005,
+      "mae": 274765.6448,
+      "rmse": 398361.7815
+    },
+    "Random Forest Regressor": {
+      "r2": 0.771,
+      "mae": 187161.9765,
+      "rmse": 301622.857
+    }
+  }
+}
