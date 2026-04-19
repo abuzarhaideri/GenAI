@@ -11,6 +11,11 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv(override=True)
+
 
 # Import our LangChain agent logic
 from rag_agent import create_agent
