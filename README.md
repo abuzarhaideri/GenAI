@@ -107,4 +107,4 @@ Open your browser at `http://localhost:8501` to use the interactive predictor.
 
 ## 📄 License
 
-This project is for educational purposes as part of a Capstone project.
+This project is for educational purposes as part of a Gen AI Capstone project.
