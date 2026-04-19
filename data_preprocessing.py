@@ -20,7 +20,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 # ---------------------------------------------------------------------------
 # Feature definitions
-# ---------------------------------------------------------------------------
+
 NUMERICAL_FEATURES = [
     "Rooms", "Distance", "Bedroom2", "Bathroom",
     "Car", "Landsize", "BuildingArea", "HouseAge",
@@ -31,9 +31,9 @@ CATEGORICAL_FEATURES = ["Type", "Regionname"]
 TARGET = "Price"
 
 
-# ---------------------------------------------------------------------------
+
 # Data loading & feature engineering
-# ---------------------------------------------------------------------------
+
 def load_and_prepare_data(data_path: Optional[str] = None):
     """
     Load the Melbourne Housing CSV, engineer features, and return
@@ -78,7 +78,7 @@ def load_and_prepare_data(data_path: Optional[str] = None):
     return X, y, preprocessor
 
 
-# ---------------------------------------------------------------------------
+
 # Preprocessing pipeline
 # ---------------------------------------------------------------------------
 def get_preprocessor() -> ColumnTransformer:
@@ -113,9 +113,9 @@ def get_preprocessor() -> ColumnTransformer:
     return preprocessor
 
 
-# ---------------------------------------------------------------------------
+
 # Convenience: quick sanity check
-# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     X, y, preprocessor = load_and_prepare_data()
     print(f"Features shape : {X.shape}")

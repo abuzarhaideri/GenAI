@@ -25,9 +25,9 @@ from data_preprocessing import (
 )
 
 
-# ---------------------------------------------------------------------------
+
 # Evaluation helper
-# ---------------------------------------------------------------------------
+
 def evaluate_model(name: str, pipeline: Pipeline, X_test, y_test) -> dict:
     """
     Compute and print R², MAE, and RMSE for a fitted pipeline.
@@ -65,23 +65,23 @@ def evaluate_model(name: str, pipeline: Pipeline, X_test, y_test) -> dict:
     return {"r2": r2, "mae": mae, "rmse": rmse}
 
 
-# ---------------------------------------------------------------------------
+
 # Main training routine
-# ---------------------------------------------------------------------------
+
 def main():
-    # 1. Load data ----------------------------------------------------------
+    # 1. Load data
     print("Loading and preparing data …")
     X, y, preprocessor = load_and_prepare_data()
     print(f"  Dataset size : {X.shape[0]} samples, {X.shape[1]} raw features")
 
-    # 2. Train/Test split ---------------------------------------------------
+    # 2. Train/Test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
     print(f"  Train size   : {X_train.shape[0]}")
     print(f"  Test size    : {X_test.shape[0]}")
 
-    # 3. Build pipelines ----------------------------------------------------
+    # 3. Build pipelines 
     models = {
         "Linear Regression": LinearRegression(),
         "Random Forest Regressor": RandomForestRegressor(
@@ -104,12 +104,12 @@ def main():
         results[name] = metrics
         fitted_pipelines[name] = pipe
 
-    # 4. Select the best model (by R²) --------------------------------------
+    # 4. Select the best model (by R²) 
     best_name = max(results, key=lambda k: results[k]["r2"])
     best_pipeline = fitted_pipelines[best_name]
     print(f"\n★  Best model: {best_name} (R² = {results[best_name]['r2']:.4f})")
 
-    # 5. Save model and metadata --------------------------------------------
+    # 5. Save model and metadata
     base_dir = os.path.dirname(os.path.abspath(__file__))
     models_dir = os.path.join(base_dir, "models")
     os.makedirs(models_dir, exist_ok=True)

@@ -1,0 +1,21 @@
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# AI Vector Database
+data/faiss_index/
+
+# Streamlit
+.streamlit/
+
+# OS Files
+.DS_Store

@@ -2,21 +2,20 @@
 app.py
 ======
 Streamlit application for real-time Melbourne property price prediction.
-Loads the trained model pipeline and lets users input house details to get
-an instant price estimate.
-
-Author : Project 9 — Intelligent Property Price Prediction
+Includes a LangChain RAG & Agentic AI Assistant interface.
 """
 
 import json
 import os
-
 import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-# ---------------------------------------------------------------------------
+# Import our LangChain agent logic
+from rag_agent import create_agent
+
+
 # Paths
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +23,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "models", "best_model.pkl")
 META_PATH = os.path.join(BASE_DIR, "models", "model_metadata.json")
 
 
-# ---------------------------------------------------------------------------
+
 # Page configuration
 # ---------------------------------------------------------------------------
 st.set_page_config(
@@ -33,7 +32,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# ---------------------------------------------------------------------------
+
 # Custom CSS — premium dark theme
 # ---------------------------------------------------------------------------
 st.markdown("""
@@ -149,8 +148,13 @@ def load_metadata():
     with open(META_PATH) as f:
         return json.load(f)
 
+# Initialize Agent
+@st.cache_resource(show_spinner=False)
+def initialize_real_estate_agent_v11():
+    return create_agent()
 
-# ---------------------------------------------------------------------------
+
+
 # Region name choices (from dataset)
 # ---------------------------------------------------------------------------
 REGION_CHOICES = [
@@ -167,18 +171,18 @@ REGION_CHOICES = [
 TYPE_CHOICES = {"House": "h", "Townhouse": "t", "Unit/Apartment": "u"}
 
 
-# ---------------------------------------------------------------------------
+
 # UI
 # ---------------------------------------------------------------------------
 def main():
     # Header ----------------------------------------------------------------
     st.markdown('<p class="hero-title">🏠 Melbourne Property Price Predictor</p>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="hero-subtitle">Enter property details to get an AI‑powered price estimate using a trained Random Forest model.</p>',
+        '<p class="hero-subtitle">Enter property details for a real-time estimate, or ask the AI Real Estate Agent.</p>',
         unsafe_allow_html=True,
     )
 
-    # Load model ------------------------------------------------------------
+    # Load model and Agent 
     try:
         model = load_model()
         metadata = load_metadata()
@@ -189,7 +193,17 @@ def main():
         )
         return
 
-    # Sidebar — input form -------------------------------------------------
+    try:
+        agent_executor = initialize_real_estate_agent_v11()
+        agent_error = None
+    except Exception as e:
+        agent_executor = None
+        agent_error = str(e)
+
+    if 'chat_history' not in st.session_state:
+        st.session_state['chat_history'] = []
+
+    # Sidebar — input form 
     with st.sidebar:
         st.markdown("### 🏡 Property Details")
         st.markdown("---")
@@ -221,95 +235,150 @@ def main():
             "House Age (years)", min_value=0, max_value=200, value=30, step=1
         )
 
-    # Build feature DataFrame -----------------------------------------------
-    input_data = pd.DataFrame([{
-        "Rooms": rooms,
-        "Distance": distance,
-        "Bedroom2": bedroom2,
-        "Bathroom": bathroom,
-        "Car": car,
-        "Landsize": landsize,
-        "BuildingArea": building_area,
-        "HouseAge": house_age,
-        "Type": property_type,
-        "Regionname": regionname,
-    }])
+    # Tabs 
+    tab1, tab2 = st.tabs(["🏠 Manual Prediction", "🤖 AI Real Estate Agent"])
 
-    # Predict ---------------------------------------------------------------
-    prediction = model.predict(input_data)[0]
-    prediction = max(prediction, 0)  # clamp negative predictions
+    with tab1:
+        # Build feature DataFrame
+        input_data = pd.DataFrame([{
+            "Rooms": rooms,
+            "Distance": distance,
+            "Bedroom2": bedroom2,
+            "Bathroom": bathroom,
+            "Car": car,
+            "Landsize": landsize,
+            "BuildingArea": building_area,
+            "HouseAge": house_age,
+            "Type": property_type,
+            "Regionname": regionname,
+        }])
 
-    # Display prediction card -----------------------------------------------
-    col_main, col_side = st.columns([2, 1])
+        # Predict
+        prediction = model.predict(input_data)[0]
+        prediction = max(prediction, 0)  # clamp negative predictions
 
-    with col_main:
-        st.markdown(
-            f"""
-            <div class="prediction-card">
-                <div class="prediction-label">Estimated Property Price</div>
-                <div class="prediction-value">${prediction:,.0f} AUD</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # Display prediction card
+        col_main, col_side = st.columns([2, 1])
 
-    with col_side:
-        st.markdown("#### 📊 Model Performance")
-        best_name = metadata.get("best_model", "Random Forest Regressor")
-        best_metrics = metadata.get("metrics", {}).get(best_name, {})
-
-        r2_val = best_metrics.get("r2", 0)
-        mae_val = best_metrics.get("mae", 0)
-        rmse_val = best_metrics.get("rmse", 0)
-
-        st.markdown(
-            f"""
-            <div class="metric-card" style="margin-bottom:0.8rem;">
-                <div class="metric-title">R² Score</div>
-                <div class="metric-value">{r2_val:.4f}</div>
-            </div>
-            <div class="metric-card" style="margin-bottom:0.8rem;">
-                <div class="metric-title">MAE</div>
-                <div class="metric-value">${mae_val:,.0f}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-title">RMSE</div>
-                <div class="metric-value">${rmse_val:,.0f}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # Input summary ---------------------------------------------------------
-    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
-    st.markdown("#### 📋 Input Summary")
-
-    summary_cols = st.columns(5)
-    labels = [
-        ("🏠 Type", property_type_label),
-        ("🛏️ Rooms", f"{rooms} rooms, {bedroom2} beds"),
-        ("🚿 Baths", str(bathroom)),
-        ("📍 Distance", f"{distance} km"),
-        ("📐 Area", f"{building_area} m²"),
-    ]
-    for col, (label, value) in zip(summary_cols, labels):
-        with col:
+        with col_main:
             st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="metric-title">{label}</div>
-                    <div class="metric-value" style="font-size:1.1rem;">{value}</div>
+                f'''
+                <div class="prediction-card">
+                    <div class="prediction-label">Estimated Property Price</div>
+                    <div class="prediction-value">${prediction:,.0f} AUD</div>
                 </div>
-                """,
+                ''',
                 unsafe_allow_html=True,
             )
+
+        with col_side:
+            st.markdown("#### 📊 Model Performance")
+            best_name = metadata.get("best_model", "Random Forest Regressor")
+            best_metrics = metadata.get("metrics", {}).get(best_name, {})
+
+            r2_val = best_metrics.get("r2", 0)
+            mae_val = best_metrics.get("mae", 0)
+            rmse_val = best_metrics.get("rmse", 0)
+
+            st.markdown(
+                f'''
+                <div class="metric-card" style="margin-bottom:0.8rem;">
+                    <div class="metric-title">R² Score</div>
+                    <div class="metric-value">{r2_val:.4f}</div>
+                </div>
+                <div class="metric-card" style="margin-bottom:0.8rem;">
+                    <div class="metric-title">MAE</div>
+                    <div class="metric-value">${mae_val:,.0f}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">RMSE</div>
+                    <div class="metric-value">${rmse_val:,.0f}</div>
+                </div>
+                ''',
+                unsafe_allow_html=True,
+            )
+
+        # Input summary
+        st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+        st.markdown("#### 📋 Input Summary")
+
+        summary_cols = st.columns(5)
+        labels = [
+            ("🏠 Type", property_type_label),
+            ("🛏️ Rooms", f"{rooms} rooms, {bedroom2} beds"),
+            ("🚿 Baths", str(bathroom)),
+            ("📍 Distance", f"{distance} km"),
+            ("📐 Area", f"{building_area} m²"),
+        ]
+        for col, (label, value) in zip(summary_cols, labels):
+            with col:
+                st.markdown(
+                    f'''
+                    <div class="metric-card">
+                        <div class="metric-title">{label}</div>
+                        <div class="metric-value" style="font-size:1.1rem;">{value}</div>
+                    </div>
+                    ''',
+                    unsafe_allow_html=True,
+                )
+
+    with tab2:
+        st.markdown("### 🤖 Chat with your AI Agent")
+        st.markdown(
+            "Welcome! I am your intelligent real estate assistant. I can analyze property dynamics or provide real-time Melbourne housing price estimates instantly.",
+        )
+        
+        if not agent_executor:
+            st.error(f"Agent failed to initialize. Please check your `.env` setup. \n\nError: {agent_error}")
+        else:
+            # Display chat history
+            for msg in st.session_state['chat_history']:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+
+            if prompt := st.chat_input("Ask a question about the project or estimate a property price..."):
+                st.session_state['chat_history'].append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.write(prompt)
+
+                with st.chat_message("assistant"):
+                    with st.spinner("AI is thinking..."):
+                        import time, re
+                        max_retries = 3
+                        last_error = None
+                        for attempt in range(max_retries):
+                            try:
+                                response = agent_executor.invoke({"messages": [("user", prompt)]})
+                                output = response["messages"][-1].content
+                                st.write(output)
+                                st.session_state['chat_history'].append({"role": "assistant", "content": output})
+                                last_error = None
+                                break
+                            except Exception as e:
+                                last_error = e
+                                err_str = str(e)
+                                # Detect DAILY quota exhaustion — retrying is pointless
+                                if "PerDay" in err_str or "GenerateRequestsPerDay" in err_str:
+                                    st.error("🚫 Daily API quota exhausted for this key. Please replace GEMINI_API_KEY in your .env file with a fresh key from https://aistudio.google.com/app/apikey and restart Streamlit.")
+                                    last_error = None
+                                    break
+                                # Per-minute rate limit — wait and retry
+                                elif "RESOURCE_EXHAUSTED" in err_str or "429" in err_str:
+                                    wait_match = re.search(r'retryDelay.*?(\d+)s', err_str)
+                                    wait_s = int(wait_match.group(1)) if wait_match else 15
+                                    wait_s = min(wait_s + 5, 65)
+                                    st.warning(f"⏳ Rate limit hit. Auto-retrying in {wait_s}s (attempt {attempt+1}/{max_retries})...")
+                                    time.sleep(wait_s)
+                                else:
+                                    break
+                        if last_error:
+                            st.error(f"Error during agent invocation: {str(last_error)}")
 
     # Footer ----------------------------------------------------------------
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
     st.caption(
-        "Built with Scikit-Learn & Streamlit · Project 9 — Intelligent Property Price Prediction"
+        "Built with Scikit-Learn, Streamlit & LangChain · Project 9 — Capstone"
     )
-
 
 if __name__ == "__main__":
     main()

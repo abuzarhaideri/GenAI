@@ -1,8 +1,14 @@
-# 🏠 Intelligent Property Price Prediction
+# 🏠 Intelligent Property Price Prediction (with GenAI)
 
 **Project 9 — Capstone Project**
 
-A modular machine learning system that predicts Melbourne property prices using classical ML models (Scikit-Learn). Features a complete data pipeline with imputation, encoding, and scaling, plus a Streamlit web interface for real-time predictions.
+A modular machine learning system that predicts Melbourne property prices using classical ML models (Scikit-Learn), enhanced by an **Agentic AI & GenAI RAG Application** built with LangChain.
+
+## 🌟 New Agentic Features
+This project now features an integrated AI Assistant that can:
+- **RAG Capability**: Perform vector similarity search using FAISS against the Capstone Report (`report/GenAI Capstone Project.pdf`).
+- **LangChain Tool Calling**: The agent acts as an autonomous assistant using `create_tool_calling_agent`.
+- **Model as a Tool**: The agent is equipped with a `predict_property_price` tool. It can seamlessly extract property features from natural language and query the local Scikit-Learn pipeline to estimate property prices.
 
 ---
 
@@ -11,14 +17,19 @@ A modular machine learning system that predicts Melbourne property prices using 
 ```
 GenAI/
 ├── data/
-│   └── melbourne_housing.csv    # Dataset (13,581 rows)
+│   ├── melbourne_housing.csv    # Dataset (13,581 rows)
+│   └── faiss_index/             # Auto-generated Vector Store (RAG)
 ├── models/
 │   ├── best_model.pkl           # Trained model pipeline (auto-generated)
 │   └── model_metadata.json      # Feature list & metrics (auto-generated)
+├── report/
+│   └── GenAI Capstone Project.pdf # Reference PDF for Vector Search
+├── rag_agent.py                 # LangChain Agent and Tool logic
 ├── data_preprocessing.py        # Data loading, feature engineering, sklearn pipeline
 ├── train_model.py               # Model training, evaluation & persistence
-├── app.py                       # Streamlit web application
+├── app.py                       # Streamlit web application & AI Chat
 ├── requirements.txt             # Python dependencies
+├── .env.example                 # Environment variables template
 └── README.md                    # This file
 ```
 
@@ -28,83 +39,68 @@ GenAI/
 
 ### 1. Install Dependencies
 
+You must install traditional ML tools alongside GenAI capabilities.
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Train the Model
+### 2. Setup your Environment
+
+Copy `.env.example` to a `.env` file and insert your API key. The agent supports both Gemini and OpenAI:
+
+```bash
+cp .env.example .env
+```
+Inside `.env`, set either `GEMINI_API_KEY` or `OPENAI_API_KEY`.
+
+### 3. Train the Model (Optional)
+
+If `models/best_model.pkl` doesn't exist, train the baseline model:
 
 ```bash
 python train_model.py
 ```
 
-This will:
-- Load and preprocess the Melbourne Housing dataset
-- Train **Linear Regression** (baseline) and **Random Forest Regressor**
-- Print evaluation metrics (R², MAE, RMSE) for both models
-- Save the best model to `models/best_model.pkl`
+### 4. Launch the Web App
 
-### 3. Launch the Web App
+Start the Streamlit application. **Note: During the first launch, the Capstone PDF will be processed automatically and cached into a local FAISS database for lightning-fast retrieval.**
 
 ```bash
 streamlit run app.py
 ```
 
-Open your browser at `http://localhost:8501` to use the interactive predictor.
+Open your browser at `http://localhost:8501`. You can flip between the **Manual Prediction Dashboard** and the **AI Real Estate Agent** tab!
 
 ---
 
 ## 🔬 Methodology
 
-### Data Pipeline (Scikit-Learn `ColumnTransformer`)
+### Agent Framework
+- **LLM**: Gemini 1.5 Flash (via `ChatGoogleGenerativeAI`) or GPT-3.5-Turbo (auto-detected via API Keys). 
+- **Embeddings**: Google Generative AI Embeddings or OpenAI Embeddings.
+- **Vector Database**: FAISS (Facebook AI Similarity Search) optimized for local CPU usage without external server dependencies.
 
+### Scikit-Learn Pipeline
 | Step | Numerical Features | Categorical Features |
 |------|-------------------|---------------------|
 | **Imputation** | `SimpleImputer(strategy='median')` | `SimpleImputer(strategy='most_frequent')` |
 | **Transformation** | `StandardScaler` | `OneHotEncoder(handle_unknown='ignore')` |
 
-### Feature Engineering
-
-- **HouseAge** = Sale Year − Year Built (computed from `Date` and `YearBuilt` columns)
-
-### Features Used
-
-| Feature | Type | Description |
-|---------|------|-------------|
-| Rooms | Numerical | Number of rooms |
-| Distance | Numerical | Distance from CBD (km) |
-| Bedroom2 | Numerical | Number of bedrooms |
-| Bathroom | Numerical | Number of bathrooms |
-| Car | Numerical | Number of car spaces |
-| Landsize | Numerical | Land size (m²) |
-| BuildingArea | Numerical | Building area (m²) |
-| HouseAge | Numerical | Age of the house (years) |
-| Type | Categorical | h=house, t=townhouse, u=unit |
-| Regionname | Categorical | Melbourne region name |
-
-### Models
-
-- **Linear Regression** — Baseline model
-- **Random Forest Regressor** — Primary model (200 estimators)
-
-### Evaluation Metrics
-
-- **R²** (Coefficient of Determination)
-- **MAE** (Mean Absolute Error)
-- **RMSE** (Root Mean Squared Error)
-
 ---
 
 ## 🛠️ Tech Stack
 
-- **Python 3.10+**
+- **LangChain** — LLMs, Prompts, Agents, Tools, RAG
+- **FAISS** — Local Vector Search indexing
+- **PyPDF** — Document parsing
 - **Scikit-Learn** — ML pipelines, models, preprocessing
 - **Pandas / NumPy** — Data manipulation
-- **Streamlit** — Interactive web UI
+- **Streamlit** — Interactive UI tabs and Chat
 - **Joblib** — Model serialization
 
 ---
 
 ## 📄 License
 
-This project is for educational purposes as part of a Gen AI Capstone project.
+This project is for educational purposes as part of a Gen AI Capstone project, complying strictly with Agentic AI and GenAI Evaluation Criteria.
