@@ -10,9 +10,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.pycache_local/
 
-# AI Vector Database
+# Models / artifacts
+models/*.pkl
+
+# AI Vector Databases
 data/faiss_index/
+vector_db/
 
 # Streamlit
 .streamlit/

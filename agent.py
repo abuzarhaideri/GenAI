@@ -4,7 +4,10 @@ import pandas as pd
 from typing import Annotated, Literal
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode
 
@@ -97,8 +100,65 @@ def get_market_statistics(regionname: str) -> str:
     except Exception as e:
         return f"Error computing market statistics: {str(e)}"
 
+# ---------------------------------------------------------------------------
+# RAG Setup & Tool
+# ---------------------------------------------------------------------------
+VECTOR_DB_PATH = os.path.join(BASE_DIR, "vector_db")
+_vector_store = None
+
+def get_vector_store():
+    global _vector_store
+    if _vector_store is not None:
+        return _vector_store
+    
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or api_key == "your_openai_api_key_here":
+        return None
+        
+    embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
+    if os.path.exists(VECTOR_DB_PATH):
+        try:
+            _vector_store = FAISS.load_local(VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
+            return _vector_store
+        except Exception:
+            pass # fallback to recreate
+    
+    docs = []
+    report_dir = os.path.join(BASE_DIR, "report")
+    if os.path.exists(report_dir):
+        for root, _, files in os.walk(report_dir):
+            for file in files:
+                if file.endswith(".md"):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        docs.append(Document(page_content=f.read(), metadata={"source": file}))
+    
+    if not docs:
+        return None
+        
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splits = text_splitter.split_documents(docs)
+    _vector_store = FAISS.from_documents(splits, embeddings)
+    _vector_store.save_local(VECTOR_DB_PATH)
+    return _vector_store
+
+@tool
+def search_knowledge_base(query: str) -> str:
+    """
+    Searches the project's knowledge base (documentation, mathematical methodology, metrics) 
+    using Retrieval-Augmented Generation (RAG). 
+    Use this to answer questions about the project's architecture, models, performance, or methodology.
+    """
+    vs = get_vector_store()
+    if vs is None:
+        return "Error: Vector knowledge base not found or API key missing."
+    docs = vs.similarity_search(query, k=3)
+    if not docs:
+        return "No relevant information found in the knowledge base."
+    return "\n\n".join([f"Source ({d.metadata.get('source', 'unknown')}):\n{d.page_content}" for d in docs])
+
 # Define the tools array
-tools = [predict_property_price, get_market_statistics]
+tools = [predict_property_price, get_market_statistics, search_knowledge_base]
 
 # ---------------------------------------------------------------------------
 # LangGraph Workflow Definition
@@ -113,11 +173,12 @@ def build_langgraph_agent(api_key: str):
     
     # 2. System prompt
     sys_msg = SystemMessage(content=(
-        "You are 'Melbourne EstateAI', an expert real estate agent and predictive assistant. "
-        "You can answer user questions about Melbourne real estate and perform highly accurate price predictions using your tools. "
+        "You are 'Melbourne EstateAI', an expert real estate agent and predictive assistant built with LangGraph. "
+        "You can answer user questions about Melbourne real estate, perform price predictions, AND answer queries about your own system architecture, ML models, evaluation metrics (R2, MAE, RMSE), and methodology. "
+        "If a user asks about how you work, use the search_knowledge_base tool to retrieve accurate information from the project reports. "
         "When a user asks for a property estimate, try to gather required parameters if they are missing (e.g. rooms, distance, type, region), "
         "but if they provide a rough description, make reasonable assumptions for missing features (like 1 bathroom for 2 beds, distance=15, landsize=400, etc.) "
-        "just so you can provide an estimate using the predict_property_price tool, then specify what you assumed. "
+        "just so you can provide an estimate using predict_property_price, specifying what you assumed. "
         "Important Mapping for property_type: 'h' for house/villa, 'u' for unit/apartment, 't' for townhouse. "
         "Be polite, professional, and explain your reasoning clearly."
     ))
