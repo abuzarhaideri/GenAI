@@ -155,7 +155,7 @@ def search_knowledge_base(query: str) -> str:
     if vs is None:
         return (
             "RAG knowledge base is disabled (no embeddings provider configured). "
-            "Configure OPENAI_API_KEYS to enable knowledge base search."
+            "Configure embeddings to enable knowledge base search."
         )
     docs = vs.similarity_search(query, k=3)
     if not docs:

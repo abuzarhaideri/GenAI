@@ -16,8 +16,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(override=True)
 
-# Import our LangChain agent logic
-from rag_agent import create_agent
+from ai_chat import chat_reply
 
 
 # Paths
@@ -152,13 +151,6 @@ def load_metadata():
     with open(META_PATH) as f:
         return json.load(f)
 
-# Initialize Agent
-@st.cache_resource(show_spinner=False)
-def initialize_real_estate_agent_v11():
-    return create_agent()
-
-
-
 # Region name choices (from dataset)
 # ---------------------------------------------------------------------------
 REGION_CHOICES = [
@@ -186,7 +178,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Load model and Agent 
+    # Load model
     try:
         model = load_model()
         metadata = load_metadata()
@@ -196,13 +188,6 @@ def main():
             "to train and save the model."
         )
         return
-
-    try:
-        agent_executor = initialize_real_estate_agent_v11()
-        agent_error = None
-    except Exception as e:
-        agent_executor = None
-        agent_error = str(e)
 
     if 'chat_history' not in st.session_state:
         st.session_state['chat_history'] = []
@@ -331,52 +316,27 @@ def main():
         st.markdown(
             "Welcome! I am your intelligent real estate assistant. I can analyze property dynamics or provide real-time Melbourne housing price estimates instantly.",
         )
-        
-        if not agent_executor:
-            st.error(f"Agent failed to initialize. Please check your `.env` setup. \n\nError: {agent_error}")
-        else:
-            # Display chat history
-            for msg in st.session_state['chat_history']:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
 
-            if prompt := st.chat_input("Ask a question about the project or estimate a property price..."):
-                st.session_state['chat_history'].append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.write(prompt)
+        # Display chat history
+        for msg in st.session_state["chat_history"]:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
 
-                with st.chat_message("assistant"):
-                    with st.spinner("AI is thinking..."):
-                        import time, re
-                        max_retries = 3
-                        last_error = None
-                        for attempt in range(max_retries):
-                            try:
-                                response = agent_executor.invoke({"messages": [("user", prompt)]})
-                                output = response["messages"][-1].content
-                                st.write(output)
-                                st.session_state['chat_history'].append({"role": "assistant", "content": output})
-                                last_error = None
-                                break
-                            except Exception as e:
-                                last_error = e
-                                err_str = str(e)
-                                # Detect DAILY quota exhaustion — retrying is pointless
-                                if "PerDay" in err_str or "GenerateRequestsPerDay" in err_str:
-                                    st.error("🚫 Daily API quota exhausted for this key. Please replace GEMINI_API_KEY in your .env file with a fresh key from https://aistudio.google.com/app/apikey and restart Streamlit.")
-                                    last_error = None
-                                    break
-                                # Per-minute rate limit — wait and retry
-                                elif "RESOURCE_EXHAUSTED" in err_str or "429" in err_str:
-                                    wait_match = re.search(r'retryDelay.*?(\d+)s', err_str)
-                                    wait_s = int(wait_match.group(1)) if wait_match else 15
-                                    wait_s = min(wait_s + 5, 65)
-                                    st.warning(f"⏳ Rate limit hit. Auto-retrying in {wait_s}s (attempt {attempt+1}/{max_retries})...")
-                                    time.sleep(wait_s)
-                                else:
-                                    break
-                        if last_error:
-                            st.error(f"Error during agent invocation: {str(last_error)}")
+        if prompt := st.chat_input("Ask a question..."):
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.write(prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("AI is thinking..."):
+                    try:
+                        output = chat_reply(st.session_state["chat_history"], prompt)
+                        st.write(output)
+                        st.session_state["chat_history"].append(
+                            {"role": "assistant", "content": output}
+                        )
+                    except Exception as e:
+                        st.error(str(e))
 
     # Footer ----------------------------------------------------------------
     st.markdown('<hr class="section-divider">', unsafe_allow_html=True)

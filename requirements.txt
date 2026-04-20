@@ -17,3 +17,4 @@ python-dotenv>=1.0.0
 tiktoken>=0.7.0
 langchain-text-splitters>=0.2.0
 openai
+requests>=2.31.0
