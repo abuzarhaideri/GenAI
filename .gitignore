@@ -25,3 +25,8 @@ vector_db/
 
 # OS Files
 .DS_Store
+models/*.pkl
+vector_db/
+.streamlit/
+.pytest_cache/
+.pycache_local/

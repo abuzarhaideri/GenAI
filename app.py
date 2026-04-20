@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(override=True)
 
-
 # Import our LangChain agent logic
 from rag_agent import create_agent
 

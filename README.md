@@ -47,12 +47,17 @@ pip install -r requirements.txt
 
 ### 2. Setup your Environment
 
-Copy `.env.example` to a `.env` file and insert your API key. The agent supports both Gemini and OpenAI:
+Copy `.env.example` to a `.env` file and insert your keys:
 
 ```bash
 cp .env.example .env
 ```
-Inside `.env`, set either `GEMINI_API_KEY` or `OPENAI_API_KEY`.
+
+Preferred setup:
+- `POLLINATIONS_API_KEY` (primary)
+- `OPENAI_API_KEYS` (fallback rotation, optional)
+
+This project may also use `GROQ_API_KEY` / `GEMINI_API_KEY` depending on the agent configuration in `rag_agent.py`.
 
 ### 3. Train the Model (Optional)
 

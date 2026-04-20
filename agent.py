@@ -1,15 +1,17 @@
 import os
 import joblib
 import pandas as pd
-from typing import Annotated, Literal
+from typing import Literal
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode
+
+from llm_provider import get_openai_keys_from_env, invoke_with_pollinations_fallback
 
 # ---------------------------------------------------------------------------
 # Setup & Model Loading
@@ -111,11 +113,11 @@ def get_vector_store():
     if _vector_store is not None:
         return _vector_store
     
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "your_openai_api_key_here":
+    openai_keys = get_openai_keys_from_env()
+    if not openai_keys:
         return None
         
-    embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
+    embeddings = OpenAIEmbeddings(api_key=openai_keys[0], model="text-embedding-3-small")
     if os.path.exists(VECTOR_DB_PATH):
         try:
             _vector_store = FAISS.load_local(VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
@@ -151,7 +153,10 @@ def search_knowledge_base(query: str) -> str:
     """
     vs = get_vector_store()
     if vs is None:
-        return "Error: Vector knowledge base not found or API key missing."
+        return (
+            "RAG knowledge base is disabled (no embeddings provider configured). "
+            "Configure OPENAI_API_KEYS to enable knowledge base search."
+        )
     docs = vs.similarity_search(query, k=3)
     if not docs:
         return "No relevant information found in the knowledge base."
@@ -163,14 +168,10 @@ tools = [predict_property_price, get_market_statistics, search_knowledge_base]
 # ---------------------------------------------------------------------------
 # LangGraph Workflow Definition
 # ---------------------------------------------------------------------------
-def build_langgraph_agent(api_key: str):
+def build_langgraph_agent():
     """
     Constructs and returns the LangGraph application.
     """
-    # 1. Initialize LLM with tools
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.3)
-    llm_with_tools = llm.bind_tools(tools)
-    
     # 2. System prompt
     sys_msg = SystemMessage(content=(
         "You are 'Melbourne EstateAI', an expert real estate agent and predictive assistant built with LangGraph. "
@@ -189,7 +190,7 @@ def build_langgraph_agent(api_key: str):
         # Inject system message safely
         if not messages or not isinstance(messages[0], SystemMessage):
             messages = [sys_msg] + messages
-        response = llm_with_tools.invoke(messages)
+        response = invoke_with_pollinations_fallback(messages=messages, tools=tools)
         return {"messages": [response]}
         
     tool_node = ToolNode(tools=tools)
